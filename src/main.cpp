@@ -64,13 +64,11 @@ bool parameter_callback(const Parameter* old_param, const Parameter* new_param,
 
 void obstacle_detected_callback(const void* msgin)
 {
-  if (!enable_obstacle_notification)
+  if (enable_obstacle_notification)
   {
-    return;
+    const auto* msg = static_cast<const std_msgs__msg__Bool*>(msgin);
+    digitalWrite(WING_RELAY_TRIGGER_PIN, msg->data ? HIGH : LOW);
   }
-
-  const auto* msg = static_cast<const std_msgs__msg__Bool*>(msgin);
-  digitalWrite(WING_RELAY_TRIGGER_PIN, msg->data ? HIGH : LOW);
 }
 
 void setup()
@@ -98,6 +96,9 @@ void setup()
   RCCHECK(rclc_parameter_server_init_default(&parameter_server, &node));
   RCCHECK(rclc_add_parameter(&parameter_server, "enable_obstacle_notification",
                              RCLC_PARAMETER_BOOL));
+  RCCHECK(rclc_parameter_set_bool(&parameter_server,
+                                  "enable_obstacle_notification",
+                                  enable_obstacle_notification));
 
   // create subscriber
   RCCHECK(rclc_subscription_init_default(
