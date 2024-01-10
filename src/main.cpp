@@ -4,17 +4,21 @@
 #include <rcl/rcl.h>
 #include <rclc/executor.h>
 #include <rclc/rclc.h>
+#include <rclc_parameter/rclc_parameter.h>
 #include <std_msgs/msg/bool.h>
 #include <stdio.h>
 
 static const uint8_t WING_RELAY_TRIGGER_PIN = 23;
 
+bool enable_obstacle_notification = true;
+
+rcl_allocator_t allocator;
+rclc_support_t support;
+rcl_node_t node;
+rclc_parameter_server_t parameter_server;
 rcl_subscription_t subscriber;
 std_msgs__msg__Bool msg;
 rclc_executor_t executor;
-rclc_support_t support;
-rcl_allocator_t allocator;
-rcl_node_t node;
 
 #define RCCHECK(fn)              \
   {                              \
@@ -41,8 +45,30 @@ void error_loop()
   }
 }
 
+bool parameter_callback(const Parameter* old_param, const Parameter* new_param,
+                        void* context)
+{
+  if (old_param == NULL && new_param == NULL)
+  {
+    return false;
+  }
+
+  if (std::string(old_param->name.data) == "enable_obstacle_notification")
+  {
+    enable_obstacle_notification = new_param->value.bool_value;
+    digitalWrite(WING_RELAY_TRIGGER_PIN, LOW);
+  }
+
+  return true;
+}
+
 void obstacle_detected_callback(const void* msgin)
 {
+  if (!enable_obstacle_notification)
+  {
+    return;
+  }
+
   const auto* msg = static_cast<const std_msgs__msg__Bool*>(msgin);
   digitalWrite(WING_RELAY_TRIGGER_PIN, msg->data ? HIGH : LOW);
 }
@@ -68,13 +94,22 @@ void setup()
   // create node
   RCCHECK(rclc_node_init_default(&node, "modot_uros", "", &support));
 
+  // create parameter server
+  RCCHECK(rclc_parameter_server_init_default(&parameter_server, &node));
+  RCCHECK(rclc_add_parameter(&parameter_server, "enable_obstacle_notification",
+                             RCLC_PARAMETER_BOOL));
+
   // create subscriber
   RCCHECK(rclc_subscription_init_default(
       &subscriber, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Bool),
       "obstacle_detector/detected"));
 
   // create executor
-  RCCHECK(rclc_executor_init(&executor, &support.context, 1, &allocator));
+  RCCHECK(rclc_executor_init(&executor, &support.context,
+                             RCLC_EXECUTOR_PARAMETER_SERVER_HANDLES + 1,
+                             &allocator));
+  RCCHECK(rclc_executor_add_parameter_server(&executor, &parameter_server,
+                                             &parameter_callback));
   RCCHECK(rclc_executor_add_subscription(
       &executor, &subscriber, &msg, &obstacle_detected_callback, ON_NEW_DATA));
 }
