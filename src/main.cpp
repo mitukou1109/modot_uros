@@ -1,4 +1,5 @@
-#include <micro_ros_arduino.h>
+#include <Arduino.h>
+#include <micro_ros_platformio.h>
 #include <rcl/error_handling.h>
 #include <rcl/rcl.h>
 #include <rclc/executor.h>
@@ -48,7 +49,8 @@ void obstacle_detected_callback(const void* msgin)
 
 void setup()
 {
-  set_microros_transports();
+  Serial.begin(115200);
+  set_microros_serial_transports(Serial);
 
   pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, HIGH);
