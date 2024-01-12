@@ -10,7 +10,7 @@
 
 static const uint8_t WING_RELAY_TRIGGER_PIN = 23;
 
-bool enable_obstacle_notification = true;
+bool enable_obstacle_notification = false;
 
 rcl_allocator_t allocator;
 rclc_support_t support;
